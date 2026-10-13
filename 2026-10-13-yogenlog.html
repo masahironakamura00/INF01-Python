@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>予言ログ ── 未知の言語を解読せよ</title>
+<style>
+:root {
+  --primary: #2563eb;
+  --primary-light: #eff6ff;
+  --ink: #0f172a;
+  --text: #334155;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --bg: #f1f5f9;
+  --paper: #ffffff;
+  --hit: #166534;
+  --hit-bg: #dcfce7;
+  --miss: #c2410c;
+  --miss-bg: #ffedd5;
+  --half: #7e22ce;
+  --half-bg: #f3e8ff;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+code, .code, textarea.mono, input.mono {
+  font-family: "Consolas", "Monaco", "Menlo", monospace;
+}
+
+/* ---------- 上部バー ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.topbar h1 { font-size: 17px; margin: 0; color: var(--ink); flex: 1; min-width: 200px; }
+.topbar .saved { font-size: 12px; color: var(--muted); }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.stat {
+  font-size: 13px; font-weight: 700;
+  padding: 3px 10px; border-radius: 9999px;
+  background: var(--bg); color: var(--ink);
+}
+.stat.miss { background: var(--miss-bg); color: var(--miss); }
+.stat.hit { background: var(--hit-bg); color: var(--hit); }
+
+button {
+  font: inherit; cursor: pointer;
+  border-radius: 8px; border: 1px solid var(--line);
+  background: var(--paper); color: var(--ink);
+  padding: 7px 14px;
+}
+button:hover { border-color: var(--muted); }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
+button.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+button.small { font-size: 13px; padding: 4px 10px; }
+
+/* ---------- 本体 ---------- */
+.wrap { max-width: 880px; margin: 0 auto; padding: 20px; }
+.intro {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+}
+.intro h2 { font-size: 16px; margin: 0 0 8px; color: var(--ink); }
+.intro ol { margin: 0; padding-left: 1.4rem; }
+.intro .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+
+input[type=text], textarea {
+  font: inherit; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px; background: #fff; width: 100%;
+}
+textarea { resize: vertical; min-height: 2.6rem; }
+input[readonly], textarea[readonly] { background: #f8fafc; color: var(--text); }
+input:disabled, textarea:disabled { background: #f8fafc; cursor: not-allowed; }
+
+/* ---------- カード ---------- */
+.card {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;
+}
+.card.result-hit  { border-left: 6px solid #22c55e; }
+.card.result-half { border-left: 6px solid #a855f7; }
+.card.result-miss { border-left: 6px solid #f97316; }
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.card-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; flex-shrink: 0;
+}
+.card-num.own { background: var(--half); }
+.code {
+  flex: 1; min-width: 200px;
+  background: #1e293b; color: #e2e8f0;
+  border-radius: 8px; padding: 8px 14px; font-size: 15px;
+  white-space: pre-wrap; word-break: break-all;
+}
+.code-input { flex: 1; min-width: 200px; }
+.badge {
+  font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 9999px;
+}
+.badge.hit  { background: var(--hit-bg);  color: var(--hit); }
+.badge.half { background: var(--half-bg); color: var(--half); }
+.badge.miss { background: var(--miss-bg); color: var(--miss); }
+
+.step { display: grid; grid-template-columns: 7.5rem 1fr; gap: 10px; align-items: start; margin-top: 10px; }
+.step-label { font-size: 13px; font-weight: 700; color: var(--ink); padding-top: 8px; }
+.step-label small { display: block; font-weight: 400; color: var(--muted); }
+.step-body { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.locked-at { font-size: 12px; color: var(--muted); }
+.judge button.on-hit  { background: var(--hit-bg);  border-color: #22c55e; color: var(--hit);  font-weight: 700; }
+.judge button.on-half { background: var(--half-bg); border-color: #a855f7; color: var(--half); font-weight: 700; }
+.judge button.on-miss { background: var(--miss-bg); border-color: #f97316; color: var(--miss); font-weight: 700; }
+.miss-cheer { font-size: 13px; color: var(--miss); font-weight: 700; }
+.hidden { display: none !important; }
+
+@media (max-width: 640px) {
+  .wrap { padding: 12px; }
+  .step { grid-template-columns: 1fr; gap: 4px; }
+  .step-label { padding-top: 0; }
+}
+
+/* ---------- まとめ ---------- */
+.summary {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 20px; margin: 24px 0;
+}
+.summary h2 { font-size: 16px; margin: 0 0 8px; color: var(--ink); }
+.summary-item { border-top: 1px dashed var(--line); padding: 10px 0; font-size: 14px; }
+.summary-item:first-of-type { border-top: none; }
+.summary-item .k { color: var(--muted); font-size: 12px; margin-right: 4px; }
+.footer-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 8px; }
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #fff; padding: 8px 16px; border-radius: 8px;
+  font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>予言ログ ── 未知の言語を解読せよ</h1>
+  <div class="stats">
+    <span class="stat" id="stat-done">予言 0</span>
+    <span class="stat hit" id="stat-hit">的中 0</span>
+    <span class="stat miss" id="stat-miss">外れ（発見） 0</span>
+  </div>
+  <span class="saved" id="saved"></span>
+</div>
+
+<div class="wrap">
+
+  <section class="intro">
+    <h2>使い方</h2>
+    <ol>
+      <li><strong>予言する</strong>：例文を実行する前に、何が表示されるかを書いて「予言を確定」を押す。<strong>確定した予言は書き直せません。</strong></li>
+      <li><strong>実行する</strong>：IDLE で例文を実行し、表示された結果をそのまま書き写す。</li>
+      <li><strong>判定する</strong>：予言と結果を比べて「的中／半分／外れ」を選ぶ。</li>
+      <li><strong>規則を書く</strong>：結果から見つけた規則を書く。こちらは何度でも書き直してよい。</li>
+    </ol>
+    <p class="note">外れは大歓迎です。外れた瞬間こそ、新しい規則が見つかる瞬間です。記録はこのブラウザに自動で保存されます（ほかの端末やブラウザには引き継がれません）。</p>
+  </section>
+
+  <div id="cards"></div>
+
+  <div class="row" style="justify-content: center; margin: 8px 0 0;">
+    <button id="add-own">＋ 自分で例文を作って試す</button>
+  </div>
+
+  <section class="summary">
+    <h2>外れた例文のまとめ</h2>
+    <p class="note" style="font-size: 13px; color: var(--muted); margin: 0 0 8px;">振り返りを書くときの手がかりにしてください（振り返りの文章は自分の言葉で書きます）。</p>
+    <div id="summary-list"></div>
+    <div class="footer-actions">
+      <button class="small" id="copy-all">記録をすべてコピー</button>
+      <button class="small" id="reset">記録を全部消す</button>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  // ===== 教員設定：例文リスト（授業ごとに書き換えれば別の回でも使える） =====
+  // ※ 実行結果（正解）はアプリに持たせない。生徒は IDLE で実行して確かめる。
+  const LESSON = {
+    id: "2026-10-14_未知の言語を解読せよ",
+    examples: [
+      'print("こんにちは")',
+      'print(3+4)',
+      'print("3+4")',
+      'print(3, 4)',
+      'print("合唱祭" * 3)',
+      'print(10 / 3)',
+      'print(10 // 3)',
+      'print(10 % 3)',
+      'print(2 ** 10)'
+    ]
+  };
+  const STORE_KEY = "yogen-log:" + LESSON.id;
+
+  // ===== 状態 =====
+  function blankEntry(code, own) {
+    return { code: code || "", own: !!own, prediction: "", lockedAt: "", result: "", judge: "", rule: "", why: "" };
+  }
+  let state = null;
+  try { state = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch (e) {}
+  if (!state || !Array.isArray(state.entries)) {
+    state = { entries: LESSON.examples.map(c => blankEntry(c, false)) };
+  }
+
+  let saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        document.getElementById("saved").textContent = "保存しました " + new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+      } catch (e) {
+        document.getElementById("saved").textContent = "※このブラウザでは自動保存できません";
+      }
+    }, 300);
+  }
+
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 1600);
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  const JUDGE = {
+    hit:  { label: "的中", cls: "hit" },
+    half: { label: "半分", cls: "half" },
+    miss: { label: "外れ", cls: "miss" }
+  };
+
+  // ===== 描画 =====
+  function render() {
+    const box = document.getElementById("cards");
+    box.innerHTML = "";
+    let ownCount = 0;
+    state.entries.forEach((e, i) => {
+      if (e.own) ownCount++;
+      box.appendChild(renderCard(e, i, e.own ? "自" + ownCount : String(i + 1 - countOwnBefore(i))));
+    });
+    renderStats();
+    renderSummary();
+  }
+
+  function countOwnBefore(i) {
+    let n = 0;
+    for (let k = 0; k < i; k++) if (state.entries[k].own) n++;
+    return n;
+  }
+
+  function renderCard(e, i, numLabel) {
+    const locked = !!e.lockedAt;
+    const card = document.createElement("div");
+    card.className = "card" + (e.judge ? " result-" + e.judge : "");
+
+    const codePart = e.own
+      ? (locked
+          ? `<div class="code">${esc(e.code)}</div>`
+          : `<div class="code-input"><input type="text" class="mono" data-f="code" placeholder="自分で作った例文を書く（例：print(5 * 2)）" value="${esc(e.code)}"></div>`)
+      : `<div class="code">${esc(e.code)}</div>`;
+
+    const badge = e.judge ? `<span class="badge ${JUDGE[e.judge].cls}">${JUDGE[e.judge].label}</span>` : "";
+    const delBtn = e.own ? `<button class="small" data-act="del">削除</button>` : "";
+
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="card-num ${e.own ? "own" : ""}">${esc(numLabel)}</div>
+        ${codePart}
+        ${badge}
+        ${delBtn}
+      </div>
+
+      <div class="step">
+        <div class="step-label">① 予言<small>実行する前に</small></div>
+        <div class="step-body">
+          <textarea class="mono" data-f="prediction" rows="1" placeholder="何が表示されると思う？" ${locked ? "readonly" : ""}>${esc(e.prediction)}</textarea>
+          <div class="row">
+            ${locked
+              ? `<span class="locked-at">🔒 予言を確定しました（${esc(e.lockedAt)}）</span>`
+              : `<button class="primary small" data-act="lock">予言を確定</button>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">② 実行結果<small>IDLE に表示されたまま</small></div>
+        <div class="step-body">
+          <textarea class="mono" data-f="result" rows="1" placeholder="${locked ? "IDLE で実行して、表示された結果を書き写す" : "先に予言を確定してください"}" ${locked ? "" : "disabled"}>${esc(e.result)}</textarea>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">③ 判定</div>
+        <div class="step-body">
+          <div class="row judge">
+            ${["hit", "half", "miss"].map(k =>
+              `<button class="small ${e.judge === k ? "on-" + k : ""}" data-act="judge" data-v="${k}" ${locked && e.result.trim() ? "" : "disabled"}>${JUDGE[k].label}</button>`
+            ).join("")}
+            ${e.judge === "miss" ? `<span class="miss-cheer">新しい規則が見つかるチャンスです！</span>` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="step ${e.judge === "miss" || e.judge === "half" ? "" : "hidden"}">
+        <div class="step-label">なぜ外れた？<small>最初はどう考えていた？</small></div>
+        <div class="step-body">
+          <textarea data-f="why" rows="2" placeholder="最初はどんな規則だと思っていたか">${esc(e.why)}</textarea>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">④ 見つけた規則<small>何度でも書き直してよい</small></div>
+        <div class="step-body">
+          <textarea data-f="rule" rows="2" placeholder="この結果から分かった Python の規則" ${locked ? "" : "disabled"}>${esc(e.rule)}</textarea>
+        </div>
+      </div>
+    `;
+
+    // 入力
+    card.querySelectorAll("[data-f]").forEach(el => {
+      el.addEventListener("input", () => {
+        e[el.dataset.f] = el.value;
+        if (el.dataset.f === "result") {
+          card.querySelectorAll('[data-act="judge"]').forEach(b => b.disabled = !el.value.trim());
+        }
+        save();
+        renderSummary();
+      });
+    });
+
+    // ボタン
+    card.querySelectorAll("[data-act]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const act = btn.dataset.act;
+        if (act === "lock") {
+          if (e.own && !e.code.trim()) { toast("先に例文を書いてください"); return; }
+          if (!e.prediction.trim()) { toast("予言を書いてから確定してください"); return; }
+          if (!confirm("この予言で確定しますか？\n確定すると予言は書き直せません。")) return;
+          e.lockedAt = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+          save(); render();
+        } else if (act === "judge") {
+          e.judge = btn.dataset.v;
+          save(); render();
+        } else if (act === "del") {
+          if (!confirm("この例文を削除しますか？")) return;
+          state.entries.splice(i, 1);
+          save(); render();
+        }
+      });
+    });
+
+    return card;
+  }
+
+  function renderStats() {
+    const done = state.entries.filter(e => e.lockedAt).length;
+    const hit = state.entries.filter(e => e.judge === "hit").length;
+    const miss = state.entries.filter(e => e.judge === "miss" || e.judge === "half").length;
+    document.getElementById("stat-done").textContent = "予言 " + done;
+    document.getElementById("stat-hit").textContent = "的中 " + hit;
+    document.getElementById("stat-miss").textContent = "外れ（発見） " + miss;
+  }
+
+  function renderSummary() {
+    renderStats();
+    const list = document.getElementById("summary-list");
+    const misses = state.entries.filter(e => e.judge === "miss" || e.judge === "half");
+    if (!misses.length) {
+      list.innerHTML = `<div class="summary-item" style="color: var(--muted);">まだ外れはありません。外れた例文はここに集まります。</div>`;
+      return;
+    }
+    list.innerHTML = misses.map(e => `
+      <div class="summary-item">
+        <div><code>${esc(e.code)}</code> <span class="badge ${JUDGE[e.judge].cls}">${JUDGE[e.judge].label}</span></div>
+        <div><span class="k">予言</span>${esc(e.prediction)}　<span class="k">結果</span>${esc(e.result)}</div>
+        ${e.why ? `<div><span class="k">最初の考え</span>${esc(e.why)}</div>` : ""}
+        ${e.rule ? `<div><span class="k">規則</span>${esc(e.rule)}</div>` : ""}
+      </div>`).join("");
+  }
+
+  // ===== 自作例文 =====
+  document.getElementById("add-own").addEventListener("click", () => {
+    state.entries.push(blankEntry("", true));
+    save(); render();
+    const cards = document.querySelectorAll(".card");
+    const last = cards[cards.length - 1];
+    if (last) {
+      last.scrollIntoView({ behavior: "smooth", block: "center" });
+      const inp = last.querySelector('[data-f="code"]');
+      if (inp) inp.focus();
+    }
+  });
+
+  // ===== コピー・リセット =====
+  document.getElementById("copy-all").addEventListener("click", () => {
+    const lines = [];
+    lines.push("予言ログ ── 未知の言語を解読せよ");
+    lines.push("");
+    state.entries.forEach((e, i) => {
+      if (!e.code.trim() && !e.prediction.trim()) return;
+      lines.push((e.own ? "［自作］" : "［" + (i + 1 - countOwnBefore(i)) + "］") + e.code);
+      lines.push("　予言：" + (e.prediction || "（なし）"));
+      lines.push("　結果：" + (e.result || "（なし）"));
+      lines.push("　判定：" + (e.judge ? JUDGE[e.judge].label : "（なし）"));
+      if (e.why) lines.push("　最初の考え：" + e.why);
+      lines.push("　規則：" + (e.rule || "（なし）"));
+      lines.push("");
+    });
+    const text = lines.join("\n");
+    const done = () => toast("コピーしました");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  });
+
+  function fallbackCopy(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { toast("コピーできませんでした"); }
+    document.body.removeChild(ta);
+  }
+
+  document.getElementById("reset").addEventListener("click", () => {
+    if (!confirm("記録をすべて消します。元に戻せません。よろしいですか？")) return;
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    state = { entries: LESSON.examples.map(c => blankEntry(c, false)) };
+    render();
+    toast("記録を消しました");
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
